@@ -53,50 +53,46 @@ const clearAuth = () => {
 
 export const authService = {
   refreshToken: async (): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/refresh-token');
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    if (!refreshToken) {
+      throw new Error('Khong tim thay refresh token');
+    }
+
+    const response = await api.post<LoginResponse>('/auth/refresh', { refreshToken });
     saveAuth(response.data);
     return response.data;
   },
 
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get<User>('/users/me');
-    return response.data;
+    // Get from localStorage since backend doesn't have /users/me endpoint
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    throw new Error('No user logged in');
   },
 
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/users/login', data);
-    saveAuth(response.data);
-    return response.data;
-  },
-
-  loginWithGoogle: async (idToken: string): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/google', { idToken });
+    const response = await api.post<LoginResponse>('/auth/login', data);
     saveAuth(response.data);
     return response.data;
   },
 
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout').catch(() => undefined);
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    if (refreshToken) {
+      await api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     clearAuth();
   },
 
   register: async (payload: RegisterRequest): Promise<User> => {
-    const response = await api.post<User>('/users/register', payload);
-    return response.data;
-  },
-
-  forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/forgot-password', { email });
-    return response.data;
-  },
-
-  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/reset-password', { token, newPassword });
+    const response = await api.post<User>('/auth/register', payload);
     return response.data;
   },
 
   getUserProfile: async (userId: number): Promise<User> => {
-    const response = await api.get<User>(`/users/${userId}`);
+    const response = await api.get<User>(`/api/users/${userId}/profile`);
     return response.data;
   },
 
@@ -104,53 +100,47 @@ export const authService = {
     userId: number,
     data: Partial<Omit<User, 'id' | 'email' | 'createdAt' | 'followerCount' | 'followingCount'>>
   ): Promise<User> => {
-    const response = await api.put<User>(`/users/${userId}`, data);
+    const response = await api.put<User>(`/api/users/${userId}/profile`, data);
     return response.data;
   },
 
-  followUser: async (followerId: number, followingId: number): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>(`/users/${followerId}/follow/${followingId}`);
+  followUser: async (targetUserId: number): Promise<{ message: string; targetUserId: number }> => {
+    const response = await api.post<{ message: string; targetUserId: number }>(`/api/users/${targetUserId}/follow`);
     return response.data;
   },
 
-  unfollowUser: async (followerId: number, followingId: number): Promise<{ message: string }> => {
-    const response = await api.delete<{ message: string }>(`/users/${followerId}/follow/${followingId}`);
+  unfollowUser: async (targetUserId: number): Promise<{ message: string; targetUserId: number }> => {
+    const response = await api.delete<{ message: string; targetUserId: number }>(`/api/users/${targetUserId}/follow`);
     return response.data;
   },
 
-  getFollowers: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/followers`);
-    return response.data;
+  getFollowers: async (userId: number, page: number = 0, size: number = 10): Promise<User[]> => {
+    const response = await api.get<{ items: User[] }>(`/api/users/${userId}/followers`, {
+      params: { page, size },
+    });
+    return response.data.items ?? [];
   },
 
-  getFollowing: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/following`);
-    return response.data;
+  getFollowing: async (userId: number, page: number = 0, size: number = 10): Promise<User[]> => {
+    const response = await api.get<{ items: User[] }>(`/api/users/${userId}/following`, {
+      params: { page, size },
+    });
+    return response.data.items ?? [];
   },
 
   getStoredUser: (): User | null => {
     if (typeof window === 'undefined') {
       return null;
     }
-    localStorage.setItem(
-      'currentUser',
-      JSON.stringify({
-        id: 5,
-        username: 'john_doe',
-        email: 'john@example.com',
-        fullName: 'John Doe',
-        bio: 'Photographer & Adventurer',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
-        coverImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=300&fit=crop',
-        followerCount: 456,
-        followingCount: 234,
-        postCount: 67,
-        createdAt: '2023-03-12T10:00:00Z',
-        updatedAt: '2024-06-04T10:00:00Z',
-      })
-    );
     const user = localStorage.getItem('currentUser');
     return user ? JSON.parse(user) : null;
+  },
+
+  updateStoredUser: (user: User): void => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    localStorage.setItem('currentUser', JSON.stringify(user));
   },
 
   isAuthenticated: (): boolean => {

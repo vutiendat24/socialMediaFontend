@@ -33,13 +33,10 @@ export const usePosts = (userId?: number) => {
   );
 
   const deletePost = useCallback(
-    async (postId: number, userId: number) => {
+    async (postId: number, feedUserId: number) => {
       try {
-        await postService.deletePost(postId, userId);
-        // Revalidate feed
-        if (userId) {
-          mutate(getFeedKey(userId));
-        }
+        await postService.deletePost(postId);
+        mutate(getFeedKey(feedUserId));
       } catch (error) {
         throw error;
       }
@@ -48,9 +45,9 @@ export const usePosts = (userId?: number) => {
   );
 
   const likePost = useCallback(
-    async (postId: number, userId: number) => {
+    async (postId: number) => {
       try {
-        return await postService.likePost(postId, userId);
+        return await postService.likePost(postId);
       } catch (error) {
         throw error;
       }
@@ -59,9 +56,9 @@ export const usePosts = (userId?: number) => {
   );
 
   const unlikePost = useCallback(
-    async (postId: number, userId: number) => {
+    async (postId: number) => {
       try {
-        return await postService.unlikePost(postId, userId);
+        return await postService.unlikePost(postId);
       } catch (error) {
         throw error;
       }

@@ -23,11 +23,6 @@ const createUploadForm = (file: File) => {
   return formData;
 };
 
-const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
-
-const getAccessToken = () =>
-  typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-
 const createIdempotencyKey = () => crypto.randomUUID();
 
 export const mediaService = {
@@ -35,19 +30,11 @@ export const mediaService = {
     data: PresignedUrlRequest,
     idempotencyKey = createIdempotencyKey()
   ): Promise<PresignedUrlResponse> => {
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error('Token missing or expired. Please log in again.');
-    }
-
-    const response = await axios.post<PresignedUrlResponse>(
-      `${API_GATEWAY_URL}/api/v1/media/presigned-url`,
+    const response = await api.post<PresignedUrlResponse>(
+      `/api/media/presigned-url`,
       data,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
         },
       }
@@ -86,7 +73,7 @@ export const mediaService = {
   },
 
   uploadImage: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
-    const response = await api.post<MediaUploadResponse>('/v1/media/upload', createUploadForm(file), {
+    const response = await api.post<MediaUploadResponse>('/api/media/upload', createUploadForm(file), {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -96,7 +83,7 @@ export const mediaService = {
   },
 
   uploadVideo: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
-    const response = await api.post<MediaUploadResponse>('/v1/media/upload/video', createUploadForm(file), {
+    const response = await api.post<MediaUploadResponse>('/api/media/upload/video', createUploadForm(file), {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -114,6 +101,6 @@ export const mediaService = {
   },
 
   deleteMedia: async (mediaId: number): Promise<void> => {
-    await api.delete(`/v1/media/${mediaId}`);
+    await api.delete(`/api/media/${mediaId}`);
   },
 };

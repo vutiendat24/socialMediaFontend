@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -32,5 +32,32 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const getApiErrorMessage = (error: unknown, fallback = 'Co loi xay ra'): string => {
+  if (!axios.isAxiosError(error)) {
+    return error instanceof Error ? error.message : fallback;
+  }
+
+  const axiosError = error as AxiosError<{ message?: string; error?: string }>;
+
+  if (!axiosError.response) {
+    return 'Khong ket noi duoc backend. Hay chay API Gateway (port 8080) hoac docker compose up.';
+  }
+
+  const data = axiosError.response.data as string | { message?: string; error?: string } | undefined;
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+
+  if (data && typeof data === 'object' && data.message) {
+    return data.message;
+  }
+
+  if (data && typeof data === 'object' && data.error) {
+    return data.error;
+  }
+
+  return fallback;
+};
 
 export default api;

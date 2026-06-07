@@ -1,4 +1,3 @@
-import axios from 'axios';
 import api from './api';
 import { Post } from '@/types';
 
@@ -10,15 +9,15 @@ export interface FeedResponse {
 
 export const feedService = {
   getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
-    const response = await axios.get<FeedResponse>(`http://localhost:8084/api/v1/feed/${userId}`, {
-      params: { limit, cursor },
+    const response = await api.get<FeedResponse>(`/api/feed/${userId}`, {
+      params: { size: limit, cursor },
     });
     return response.data;
   },
 
   getExploreFeed: async (limit = 20, cursor?: string): Promise<FeedResponse> => {
-    const response = await axios.get<FeedResponse>('http://localhost:8084/api/v1/feed/explore', {
-      params: { limit, cursor },
+    const response = await api.get<FeedResponse>(`/api/search`, {
+      params: { q: '', size: limit, cursor },
     });
     return response.data;
   },

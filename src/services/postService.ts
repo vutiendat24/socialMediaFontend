@@ -1,5 +1,4 @@
 import api from './api';
-import axios from 'axios';
 import { Comment, Post } from '@/types';
 
 export type { Comment, Post } from '@/types';
@@ -17,78 +16,59 @@ export interface FeedResponse {
   hasNext: boolean;
 }
 
-const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
-
-const getAccessToken = () =>
-  typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-
 export const postService = {
   createPost: async (data: CreatePostRequest): Promise<Post> => {
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error('Token missing or expired. Please log in again.');
-    }
-
-    const response = await axios.post<Post>(`${API_GATEWAY_URL}/api/v1/posts`, data, {
+    const response = await api.post<Post>(`/api/posts`, data, {
       headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
         'Idempotency-Key': crypto.randomUUID(),
       },
     });
-
     return response.data;
   },
 
   getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
-    const response = await api.get<FeedResponse>(`/v1/feed/${userId}`, {
-      params: { limit, cursor },
+    const response = await api.get<FeedResponse>(`/api/feed/${userId}`, {
+      params: { size: limit, cursor },
     });
     return response.data;
   },
 
   getPostDetail: async (postId: number): Promise<Post> => {
-    const response = await api.get<Post>(`/v1/posts/${postId}`);
+    const response = await api.get<Post>(`/api/posts/${postId}`);
     return response.data;
   },
 
   getPostById: async (postId: number): Promise<Post> => {
-    const response = await api.get<Post>(`/v1/posts/${postId}`);
+    const response = await api.get<Post>(`/api/posts/${postId}`);
     return response.data;
   },
 
   updatePost: async (postId: number, data: Partial<Post>): Promise<Post> => {
-    const response = await api.put<Post>(`/v1/posts/${postId}`, data);
+    const response = await api.put<Post>(`/api/posts/${postId}`, data);
     return response.data;
   },
 
-  deletePost: async (postId: number, userId?: number): Promise<void> => {
-    await api.delete(`/v1/posts/${postId}`, {
-      params: userId ? { userId } : undefined,
+  deletePost: async (postId: number): Promise<void> => {
+    await api.delete(`/api/posts/${postId}`);
+  },
+
+  likePost: async (postId: number): Promise<void> => {
+    await api.post(`/api/posts/${postId}/like`);
+  },
+
+  unlikePost: async (postId: number): Promise<void> => {
+    await api.delete(`/api/posts/${postId}/like`);
+  },
+
+  getComments: async (postId: number, page: number = 0, size: number = 20): Promise<Comment[]> => {
+    const response = await api.get<Comment[]>(`/api/posts/${postId}/comments`, {
+      params: { page, size },
     });
-  },
-
-  likePost: async (postId: number, userId?: number): Promise<void> => {
-    await api.post(`/v1/posts/${postId}/like`, userId ? { userId } : {});
-  },
-
-  unlikePost: async (postId: number, userId?: number): Promise<void> => {
-    await api.post(`/v1/posts/${postId}/unlike`, userId ? { userId } : {});
-  },
-
-  getComments: async (postId: number): Promise<Comment[]> => {
-    const response = await api.get<Comment[]>(`/v1/posts/${postId}/comments`);
     return response.data;
   },
 
   createComment: async (postId: number, content: string): Promise<Comment> => {
-    const response = await api.post<Comment>(`/v1/posts/${postId}/comments`, { content });
-    return response.data;
-  },
-
-  getUserPosts: async (userId: number): Promise<Post[]> => {
-    const response = await api.get<Post[]>(`/v1/users/${userId}/posts`);
+    const response = await api.post<Comment>(`/api/posts/${postId}/comments`, { content });
     return response.data;
   },
 };
