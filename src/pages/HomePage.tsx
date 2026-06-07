@@ -143,7 +143,9 @@ export default function HomePage() {
       return
     }
 
-    const token = localStorage.getItem('accessToken')
+    // const token = localStorage.getItem('accessToken')
+    // nho chinh lai 
+    const token = "dsfsdfdsfsdf sdfsd"
     if (!token) {
       setFormError('Token thieu hoac da het han. Vui long dang nhap lai.')
       return
@@ -218,8 +220,10 @@ export default function HomePage() {
     }))
 
     setSelectedMedia((prev) => [...prev, ...mediaItems])
-
-    if (!localStorage.getItem('accessToken')) {
+    // nho chinh lai 
+    // const token = localStorage.getItem('accessToken')
+    const token = "dsfsdfdsfsdf sdfsd"
+    if (!token) {
       setFormError('Token thieu hoac da het han. Vui long dang nhap lai.')
       return
     }

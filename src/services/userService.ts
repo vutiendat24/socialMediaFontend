@@ -17,13 +17,13 @@ const saveAuth = (response: AuthResponse) => {
 
 export const userService = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/users/login', credentials);
+    const response = await api.post<AuthResponse>('/api/users/login', credentials);
     saveAuth(response.data);
     return response.data;
   },
 
   register: async (data: RegisterRequest): Promise<User> => {
-    const response = await api.post<User>('/users/register', data);
+    const response = await api.post<User>('/api/users/register', data);
     return response.data;
   },
 
@@ -39,7 +39,7 @@ export const userService = {
 
   getCurrentUser: async (): Promise<User> => {
     try {
-      const response = await api.get<User>('/users/me');
+      const response = await api.get<User>('/api/users/me');
       return response.data;
     } catch (error) {
       const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
@@ -53,35 +53,35 @@ export const userService = {
   },
 
   getUserById: async (userId: number): Promise<User> => {
-    const response = await api.get<User>(`/users/${userId}`);
+    const response = await api.get<User>(`/api/users/${userId}`);
     return response.data;
   },
 
   getUserByUsername: async (username: string): Promise<User> => {
-    const response = await api.get<User>(`/users/username/${username}`);
+    const response = await api.get<User>(`/api/users/username/${username}`);
     return response.data;
   },
 
   updateProfile: async (userId: number, data: Partial<User>): Promise<User> => {
-    const response = await api.put<User>(`/users/${userId}`, data);
+    const response = await api.put<User>(`/api/users/${userId}`, data);
     return response.data;
   },
 
   followUser: async (userId: number): Promise<void> => {
-    await api.post(`/users/${userId}/follow`);
+    await api.post(`/api/users/${userId}/follow`);
   },
 
   unfollowUser: async (userId: number): Promise<void> => {
-    await api.post(`/users/${userId}/unfollow`);
+    await api.post(`/api/users/${userId}/unfollow`);
   },
 
   getFollowers: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/followers`);
+    const response = await api.get<User[]>(`/api/users/${userId}/followers`);
     return response.data;
   },
 
   getFollowing: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/following`);
+    const response = await api.get<User[]>(`/api/users/${userId}/following`);
     return response.data;
   },
 };

@@ -53,18 +53,18 @@ const clearAuth = () => {
 
 export const authService = {
   refreshToken: async (): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/refresh-token');
+    const response = await api.post<LoginResponse>('/auth/refresh');
     saveAuth(response.data);
     return response.data;
   },
 
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get<User>('/users/me');
+    const response = await api.get<User>('/api/users/me');
     return response.data;
   },
 
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/users/login', data);
+    const response = await api.post<LoginResponse>('/api/users/login', data);
     saveAuth(response.data);
     return response.data;
   },
@@ -81,7 +81,7 @@ export const authService = {
   },
 
   register: async (payload: RegisterRequest): Promise<User> => {
-    const response = await api.post<User>('/users/register', payload);
+    const response = await api.post<User>('/api/users/register', payload);
     return response.data;
   },
 
@@ -96,7 +96,7 @@ export const authService = {
   },
 
   getUserProfile: async (userId: number): Promise<User> => {
-    const response = await api.get<User>(`/users/${userId}`);
+    const response = await api.get<User>(`/api/users/${userId}`);
     return response.data;
   },
 
@@ -104,27 +104,27 @@ export const authService = {
     userId: number,
     data: Partial<Omit<User, 'id' | 'email' | 'createdAt' | 'followerCount' | 'followingCount'>>
   ): Promise<User> => {
-    const response = await api.put<User>(`/users/${userId}`, data);
+    const response = await api.put<User>(`/api/users/${userId}`, data);
     return response.data;
   },
 
   followUser: async (followerId: number, followingId: number): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>(`/users/${followerId}/follow/${followingId}`);
+    const response = await api.post<{ message: string }>(`/api/users/${followerId}/follow/${followingId}`);
     return response.data;
   },
 
   unfollowUser: async (followerId: number, followingId: number): Promise<{ message: string }> => {
-    const response = await api.delete<{ message: string }>(`/users/${followerId}/follow/${followingId}`);
+    const response = await api.delete<{ message: string }>(`/api/users/${followerId}/follow/${followingId}`);
     return response.data;
   },
 
   getFollowers: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/followers`);
+    const response = await api.get<User[]>(`/api/users/${userId}/followers`);
     return response.data;
   },
 
   getFollowing: async (userId: number): Promise<User[]> => {
-    const response = await api.get<User[]>(`/users/${userId}/following`);
+    const response = await api.get<User[]>(`/api/users/${userId}/following`);
     return response.data;
   },
 

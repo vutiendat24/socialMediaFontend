@@ -3,21 +3,21 @@ import { Notification } from '@/types';
 
 export const notificationService = {
   getNotifications: async (userId: number, limit = 20): Promise<Notification[]> => {
-    const response = await api.get<Notification[]>(`/v1/notifications/${userId}`, {
-      params: { limit },
+    const response = await api.get<Notification[]>('/api/notifications', {
+      params: { recipientId: userId, limit },
     });
     return response.data;
   },
 
   markAsRead: async (notificationId: number): Promise<void> => {
-    await api.put(`/v1/notifications/${notificationId}/read`);
+    await api.post(`/api/notifications/${notificationId}/read`);
   },
 
   markAllAsRead: async (userId: number): Promise<void> => {
-    await api.put(`/v1/notifications/${userId}/read-all`);
+    await api.post(`/api/notifications/${userId}/read-all`);
   },
 
   deleteNotification: async (notificationId: number): Promise<void> => {
-    await api.delete(`/v1/notifications/${notificationId}`);
+    await api.delete(`/api/notifications/${notificationId}`);
   },
 };

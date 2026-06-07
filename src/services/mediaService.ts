@@ -1,5 +1,5 @@
-import api from './api';
 import axios, { AxiosProgressEvent } from 'axios';
+import api from './api';
 
 export interface MediaUploadResponse {
   url: string;
@@ -15,18 +15,27 @@ export interface PresignedUrlRequest {
 export interface PresignedUrlResponse {
   uploadUrl: string;
   mediaId: number;
+  expiresAt?: string;
 }
 
-const createUploadForm = (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return formData;
+const getStoredUserId = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const storedUser = localStorage.getItem('currentUser');
+
+  if (!storedUser) {
+    return null;
+  }
+
+  try {
+    const user = JSON.parse(storedUser) as { id?: unknown };
+    return typeof user.id === 'number' ? user.id : null;
+  } catch {
+    return null;
+  }
 };
-
-const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
-
-const getAccessToken = () =>
-  typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
 const createIdempotencyKey = () => crypto.randomUUID();
 
@@ -35,23 +44,11 @@ export const mediaService = {
     data: PresignedUrlRequest,
     idempotencyKey = createIdempotencyKey()
   ): Promise<PresignedUrlResponse> => {
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error('Token missing or expired. Please log in again.');
-    }
-
-    const response = await axios.post<PresignedUrlResponse>(
-      `${API_GATEWAY_URL}/api/v1/media/presigned-url`,
-      data,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-        },
-      }
-    );
+    const response = await api.post<PresignedUrlResponse>('/api/v1/media/presigned-url', data, {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
+    });
 
     return response.data;
   },
@@ -59,7 +56,7 @@ export const mediaService = {
   uploadToPresignedUrl: async (
     uploadUrl: string,
     file: File,
-    onUploadProgress?: (event: AxiosProgressEvent) => void
+  onUploadProgress?: (event: AxiosProgressEvent) => void
   ): Promise<void> => {
     await axios.put(uploadUrl, file, {
       headers: {
@@ -86,23 +83,25 @@ export const mediaService = {
   },
 
   uploadImage: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
-    const response = await api.post<MediaUploadResponse>('/v1/media/upload', createUploadForm(file), {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress,
-    });
-    return response.data;
+    const userId = getStoredUserId();
+
+    if (!userId) {
+      throw new Error('Cannot upload media without current user id.');
+    }
+
+    const mediaId = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
+    return { mediaId, url: '' };
   },
 
   uploadVideo: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
-    const response = await api.post<MediaUploadResponse>('/v1/media/upload/video', createUploadForm(file), {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress,
-    });
-    return response.data;
+    const userId = getStoredUserId();
+
+    if (!userId) {
+      throw new Error('Cannot upload media without current user id.');
+    }
+
+    const mediaId = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
+    return { mediaId, url: '' };
   },
 
   uploadMedia: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
@@ -114,6 +113,6 @@ export const mediaService = {
   },
 
   deleteMedia: async (mediaId: number): Promise<void> => {
-    await api.delete(`/v1/media/${mediaId}`);
+    console.warn(`media-service backend does not expose delete endpoint for media ${mediaId}.`);
   },
 };

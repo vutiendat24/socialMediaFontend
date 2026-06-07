@@ -1,6 +1,6 @@
-import axios from 'axios';
-import api from './api';
 import { Post } from '@/types';
+import { postService } from './postService';
+import api from './api';
 
 export interface FeedResponse {
   items: Post[];
@@ -8,18 +8,23 @@ export interface FeedResponse {
   hasNext: boolean;
 }
 
+export interface FeedHealthResponse {
+  service: string;
+  port: number;
+  status: string;
+}
+
 export const feedService = {
-  getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
-    const response = await axios.get<FeedResponse>(`http://localhost:8084/api/v1/feed/${userId}`, {
-      params: { limit, cursor },
-    });
+  getHealth: async (): Promise<FeedHealthResponse> => {
+    const response = await api.get<FeedHealthResponse>('/api/feed');
     return response.data;
   },
 
+  getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
+    return postService.getFeed(userId, limit, cursor);
+  },
+
   getExploreFeed: async (limit = 20, cursor?: string): Promise<FeedResponse> => {
-    const response = await axios.get<FeedResponse>('http://localhost:8084/api/v1/feed/explore', {
-      params: { limit, cursor },
-    });
-    return response.data;
+    return postService.getFeed(0, limit, cursor);
   },
 };
