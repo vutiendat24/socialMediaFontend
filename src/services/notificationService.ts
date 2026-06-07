@@ -2,22 +2,23 @@ import api from './api';
 import { Notification } from '@/types';
 
 export const notificationService = {
-  getNotifications: async (userId: number, limit = 20): Promise<Notification[]> => {
-    const response = await api.get<Notification[]>('/api/notifications', {
-      params: { recipientId: userId, limit },
+  getNotifications: async (recipientId: string, limit = 20): Promise<Notification[]> => {
+    const response = await api.get<Notification[]>(`/api/notifications`, {
+      params: { recipientId, limit },
     });
     return response.data;
   },
 
-  markAsRead: async (notificationId: number): Promise<void> => {
+  createNotification: async (notification: Partial<Notification>): Promise<Notification> => {
+    const response = await api.post<Notification>(`/api/notifications`, notification);
+    return response.data;
+  },
+
+  markAsRead: async (notificationId: number | string): Promise<void> => {
     await api.post(`/api/notifications/${notificationId}/read`);
   },
 
-  markAllAsRead: async (userId: number): Promise<void> => {
-    await api.post(`/api/notifications/${userId}/read-all`);
-  },
-
-  deleteNotification: async (notificationId: number): Promise<void> => {
+  deleteNotification: async (notificationId: number | string): Promise<void> => {
     await api.delete(`/api/notifications/${notificationId}`);
   },
 };

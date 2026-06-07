@@ -17,7 +17,10 @@ function App() {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
   useEffect(() => {
-    setUser(authService.getStoredUser())
+    const stored = authService.getStoredUser()
+    if (stored) {
+      setUser(stored)
+    }
   }, [setUser])
 
   const handleLogout = async () => {

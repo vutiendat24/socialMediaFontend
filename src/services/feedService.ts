@@ -15,16 +15,17 @@ export interface FeedHealthResponse {
 }
 
 export const feedService = {
-  getHealth: async (): Promise<FeedHealthResponse> => {
-    const response = await api.get<FeedHealthResponse>('/api/feed');
+  getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
+    const response = await api.get<FeedResponse>(`/api/feed/${userId}`, {
+      params: { size: limit, cursor },
+    });
     return response.data;
   },
 
-  getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
-    return postService.getFeed(userId, limit, cursor);
-  },
-
   getExploreFeed: async (limit = 20, cursor?: string): Promise<FeedResponse> => {
-    return postService.getFeed(0, limit, cursor);
+    const response = await api.get<FeedResponse>(`/api/search`, {
+      params: { q: '', size: limit, cursor },
+    });
+    return response.data;
   },
 };

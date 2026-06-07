@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 
 export const useUserProfile = (userId: number) => {
   const { data: user, isLoading, error } = useSWR(
-    userId ? `/users/${userId}` : null,
+    userId ? `/api/users/${userId}/profile` : null,
     () => authService.getUserProfile(userId),
     {
       revalidateOnFocus: false,
@@ -13,40 +13,22 @@ export const useUserProfile = (userId: number) => {
 
   const updateProfile = useCallback(
     async (data: Partial<User>) => {
-      try {
-        const updated = await authService.updateUserProfile(userId, data);
-        mutate(`/users/${userId}`);
-        return updated;
-      } catch (error) {
-        throw error;
-      }
+      const updated = await authService.updateUserProfile(userId, data);
+      mutate(`/api/users/${userId}/profile`);
+      return updated;
     },
     [userId]
   );
 
-  const follow = useCallback(
-    async (currentUserId: number) => {
-      try {
-        await authService.followUser(currentUserId, userId);
-        mutate(`/users/${userId}`);
-      } catch (error) {
-        throw error;
-      }
-    },
-    [userId]
-  );
+  const follow = useCallback(async () => {
+    await authService.followUser(userId);
+    mutate(`/api/users/${userId}/profile`);
+  }, [userId]);
 
-  const unfollow = useCallback(
-    async (currentUserId: number) => {
-      try {
-        await authService.unfollowUser(currentUserId, userId);
-        mutate(`/users/${userId}`);
-      } catch (error) {
-        throw error;
-      }
-    },
-    [userId]
-  );
+  const unfollow = useCallback(async () => {
+    await authService.unfollowUser(userId);
+    mutate(`/api/users/${userId}/profile`);
+  }, [userId]);
 
   return {
     user,
@@ -60,7 +42,7 @@ export const useUserProfile = (userId: number) => {
 
 export const useUserFollowers = (userId: number) => {
   const { data: followers = [], isLoading, error } = useSWR(
-    userId ? `/users/${userId}/followers` : null,
+    userId ? `/api/users/${userId}/followers` : null,
     () => authService.getFollowers(userId)
   );
 
@@ -69,7 +51,7 @@ export const useUserFollowers = (userId: number) => {
 
 export const useUserFollowing = (userId: number) => {
   const { data: following = [], isLoading, error } = useSWR(
-    userId ? `/users/${userId}/following` : null,
+    userId ? `/api/users/${userId}/following` : null,
     () => authService.getFollowing(userId)
   );
 

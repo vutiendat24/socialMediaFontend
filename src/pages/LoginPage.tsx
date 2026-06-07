@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Camera, Loader2, Lock, Mail } from 'lucide-react'
 import { authService } from '@/services/authService'
+import { getApiErrorMessage } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
 interface LocationState {
@@ -52,7 +53,7 @@ export default function LoginPage() {
       setUser(response.user)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dang nhap that bai')
+      setError(getApiErrorMessage(err, 'Dang nhap that bai'))
     } finally {
       setIsSubmitting(false)
     }

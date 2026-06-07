@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Camera, Loader2, Lock, Mail, User, UserRound } from 'lucide-react'
 import { authService } from '@/services/authService'
+import { getApiErrorMessage } from '@/services/api'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -63,7 +64,7 @@ export default function RegisterPage() {
         state: { message: 'Dang ky thanh cong. Hay dang nhap de tiep tuc.' },
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dang ky that bai')
+      setError(getApiErrorMessage(err, 'Dang ky that bai'))
     } finally {
       setIsSubmitting(false)
     }
