@@ -1,16 +1,25 @@
 import api from './api';
-import { Notification } from '@/types';
+
+export interface NotificationDto {
+  id: string;
+  recipientId: string;
+  type: string;
+  message: string;
+  referenceId?: string | null;
+  readFlag: boolean;
+  createdAt: string;
+}
 
 export const notificationService = {
-  getNotifications: async (recipientId: string, limit = 20): Promise<Notification[]> => {
-    const response = await api.get<Notification[]>(`/api/notifications`, {
-      params: { recipientId, limit },
+  getNotifications: async (recipientId: string): Promise<NotificationDto[]> => {
+    const response = await api.get<NotificationDto[]>(`/api/notifications`, {
+      params: { recipientId },
     });
     return response.data;
   },
 
-  createNotification: async (notification: Partial<Notification>): Promise<Notification> => {
-    const response = await api.post<Notification>(`/api/notifications`, notification);
+  createNotification: async (notification: Partial<NotificationDto>): Promise<NotificationDto> => {
+    const response = await api.post<NotificationDto>(`/api/notifications`, notification);
     return response.data;
   },
 

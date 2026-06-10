@@ -1,6 +1,20 @@
 import axios, { AxiosError } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const getApiUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!configuredUrl) {
+    return 'http://127.0.0.1:8080';
+  }
+
+  if (configuredUrl.startsWith('/') || /^https?:\/\//i.test(configuredUrl)) {
+    return configuredUrl;
+  }
+
+  return `http://${configuredUrl}`;
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,

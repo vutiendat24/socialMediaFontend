@@ -4,6 +4,8 @@ import api from './api';
 export interface MediaUploadResponse {
   url: string;
   mediaId: number;
+  mediaUrl?: string;
+  fileType?: string;
 }
 
 export interface PresignedUrlRequest {
@@ -15,7 +17,14 @@ export interface PresignedUrlRequest {
 export interface PresignedUrlResponse {
   uploadUrl: string;
   mediaId: number;
+  mediaUrl: string;
   expiresAt?: string;
+}
+
+export interface UploadedMedia {
+  mediaId: number;
+  mediaUrl: string;
+  fileType: string;
 }
 
 const getStoredUserId = () => {
@@ -39,7 +48,28 @@ const getStoredUserId = () => {
 
 const createIdempotencyKey = () => crypto.randomUUID();
 
+const getMediaBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_MEDIA_URL?.trim();
+
+  if (!configuredUrl) {
+    return 'http://127.0.0.1:8084';
+  }
+
+  if (configuredUrl.startsWith('/') || /^https?:\/\//i.test(configuredUrl)) {
+    return configuredUrl.replace(/\/$/, '');
+  }
+
+  return `http://${configuredUrl}`.replace(/\/$/, '');
+};
+
+const getMediaUrl = (mediaId: number): string => {
+  const baseUrl = getMediaBaseUrl();
+  return baseUrl.endsWith('/media') ? `${baseUrl}/${mediaId}` : `${baseUrl}/media/${mediaId}`;
+};
+
 export const mediaService = {
+  getMediaUrl,
+
   getPresignedUrl: async (
     data: PresignedUrlRequest,
     idempotencyKey = createIdempotencyKey()
@@ -70,7 +100,7 @@ export const mediaService = {
     userId: number,
     file: File,
     onUploadProgress?: (event: AxiosProgressEvent) => void
-  ): Promise<number> => {
+  ): Promise<UploadedMedia> => {
     const presigned = await mediaService.getPresignedUrl({
       userId,
       fileType: file.type,
@@ -79,7 +109,11 @@ export const mediaService = {
 
     await mediaService.uploadToPresignedUrl(presigned.uploadUrl, file, onUploadProgress);
 
-    return presigned.mediaId;
+    return {
+      mediaId: presigned.mediaId,
+      mediaUrl: presigned.mediaUrl || mediaService.getMediaUrl(presigned.mediaId),
+      fileType: file.type,
+    };
   },
 
   uploadImage: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
@@ -89,8 +123,8 @@ export const mediaService = {
       throw new Error('Cannot upload media without current user id.');
     }
 
-    const mediaId = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
-    return { mediaId, url: '' };
+    const uploaded = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
+    return { mediaId: uploaded.mediaId, url: uploaded.mediaUrl, mediaUrl: uploaded.mediaUrl, fileType: uploaded.fileType };
   },
 
   uploadVideo: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {
@@ -100,8 +134,8 @@ export const mediaService = {
       throw new Error('Cannot upload media without current user id.');
     }
 
-    const mediaId = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
-    return { mediaId, url: '' };
+    const uploaded = await mediaService.uploadViaPresignedUrl(userId, file, onUploadProgress);
+    return { mediaId: uploaded.mediaId, url: uploaded.mediaUrl, mediaUrl: uploaded.mediaUrl, fileType: uploaded.fileType };
   },
 
   uploadMedia: async (file: File, onUploadProgress?: (event: AxiosProgressEvent) => void): Promise<MediaUploadResponse> => {

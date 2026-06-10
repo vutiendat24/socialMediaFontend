@@ -35,35 +35,47 @@ export const usePosts = (userId?: number) => {
   const deletePost = useCallback(
     async (postId: number, feedUserId: number) => {
       try {
-        await postService.deletePost(postId);
+        if (!userId) {
+          throw new Error('User id is required to delete a post');
+        }
+
+        await postService.deletePost(postId, userId);
         mutate(getFeedKey(feedUserId));
       } catch (error) {
         throw error;
       }
     },
-    []
+    [userId]
   );
 
   const likePost = useCallback(
     async (postId: number) => {
       try {
-        return await postService.likePost(postId);
+        if (!userId) {
+          throw new Error('User id is required to like a post');
+        }
+
+        return await postService.likePost(postId, userId);
       } catch (error) {
         throw error;
       }
     },
-    []
+    [userId]
   );
 
   const unlikePost = useCallback(
     async (postId: number) => {
       try {
-        return await postService.unlikePost(postId);
+        if (!userId) {
+          throw new Error('User id is required to unlike a post');
+        }
+
+        return await postService.unlikePost(postId, userId);
       } catch (error) {
         throw error;
       }
     },
-    []
+    [userId]
   );
 
   return {

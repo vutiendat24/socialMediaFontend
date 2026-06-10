@@ -1,70 +1,72 @@
-import { Heart, UserPlus, MessageCircle, Share2 } from 'lucide-react'
-import { mockUsers } from '../data/mockData'
+import { useEffect, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-
-const notifications = [
-  {
-    id: 1,
-    type: 'like',
-    user: mockUsers[1],
-    action: 'liked your post',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-  {
-    id: 2,
-    type: 'follow',
-    user: mockUsers[3],
-    action: 'started following you',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 3,
-    type: 'comment',
-    user: mockUsers[0],
-    action: 'commented on your post',
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 4,
-    type: 'like',
-    user: mockUsers[2],
-    action: 'liked your post',
-    timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 5,
-    type: 'follow',
-    user: mockUsers[0],
-    action: 'started following you',
-    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  },
-]
+import { Heart, Loader2, MessageCircle, Share2, UserPlus } from 'lucide-react'
+import { getApiErrorMessage } from '@/services/api'
+import { notificationService, type NotificationDto } from '@/services/notificationService'
+import { useAuthStore } from '@/store/authStore'
 
 export default function NotificationsPage() {
+  const currentUser = useAuthStore((state) => state.user)
+  const [notifications, setNotifications] = useState<NotificationDto[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!currentUser) {
+      setNotifications([])
+      setError('Vui long dang nhap de xem thong bao.')
+      return
+    }
+
+    let isCurrent = true
+    setIsLoading(true)
+    setError(null)
+
+    notificationService
+      .getNotifications(String(currentUser.id))
+      .then((items) => {
+        if (!isCurrent) return
+        setNotifications(items)
+      })
+      .catch((err) => {
+        if (!isCurrent) return
+        setNotifications([])
+        setError(getApiErrorMessage(err, 'Khong tai duoc thong bao.'))
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [currentUser?.id])
+
   const getIcon = (type: string) => {
-    switch (type) {
-      case 'like':
+    switch (type.toUpperCase()) {
+      case 'LIKE':
         return <Heart size={20} className="text-red-500" />
-      case 'follow':
+      case 'FOLLOW':
         return <UserPlus size={20} className="text-blue-500" />
-      case 'comment':
+      case 'COMMENT':
         return <MessageCircle size={20} className="text-blue-500" />
-      case 'share':
+      case 'SHARE':
         return <Share2 size={20} className="text-green-500" />
       default:
-        return <Heart size={20} />
+        return <Heart size={20} className="text-gray-500" />
     }
   }
 
   const getColor = (type: string) => {
-    switch (type) {
-      case 'like':
+    switch (type.toUpperCase()) {
+      case 'LIKE':
         return 'hover:bg-red-50'
-      case 'follow':
+      case 'FOLLOW':
+      case 'COMMENT':
         return 'hover:bg-blue-50'
-      case 'comment':
-        return 'hover:bg-blue-50'
-      case 'share':
+      case 'SHARE':
         return 'hover:bg-green-50'
       default:
         return 'hover:bg-gray-50'
@@ -73,14 +75,22 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-2xl mx-auto border-l border-r border-gray-200 min-h-screen">
-      {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 z-20">
         <h1 className="text-xl font-bold">Notifications</h1>
       </div>
 
-      {/* Notifications List */}
       <div className="divide-y divide-gray-200">
-        {notifications.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-500">
+            <Loader2 size={22} className="animate-spin" />
+            <span>Dang tai thong bao...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 text-gray-500">
+            <Heart size={48} className="mx-auto mb-4 text-gray-300" />
+            <p className="text-lg">{error}</p>
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
             <Heart size={48} className="mx-auto mb-4 text-gray-300" />
             <p className="text-lg">No notifications yet</p>
@@ -93,30 +103,17 @@ export default function NotificationsPage() {
             >
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">{getIcon(notification.type)}</div>
-                <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden flex-shrink-0">
-                  {notification.user.avatar && (
-                    <img
-                      src={notification.user.avatar}
-                      alt={notification.user.fullName}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-500">
+                  {notification.type.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-semibold text-gray-900">{notification.user.fullName}</span>
-                    <span className="text-gray-600"> {notification.action}</span>
-                  </p>
+                  <p className="text-sm text-gray-700">{notification.message}</p>
                   <p className="text-xs text-gray-500">
-                    {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                   </p>
                 </div>
               </div>
-              {notification.type === 'follow' && (
-                <button className="px-6 py-1.5 bg-blue-500 text-white rounded-full font-semibold hover:bg-blue-600 transition text-sm">
-                  Follow
-                </button>
-              )}
+              {!notification.readFlag && <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />}
             </div>
           ))
         )}

@@ -73,7 +73,7 @@ export const authService = {
   },
 
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/login', data);
+    const response = await api.post<LoginResponse>('api/users/login', data);
     saveAuth(response.data);
     return response.data;
   },
@@ -87,7 +87,7 @@ export const authService = {
   },
 
   register: async (payload: RegisterRequest): Promise<User> => {
-    const response = await api.post<User>('/auth/register', payload);
+    const response = await api.post<User>('/api/users/register', payload);
     return response.data;
   },
 

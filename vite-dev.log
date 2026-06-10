@@ -1,0 +1,25 @@
+
+> my-project@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1151[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3000[22m/[39m
+[2m10:50:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m10:50:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m10:50:27[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m10:50:50[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m10:51:32[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mtsconfig.tsbuildinfo[22m
+[2m12:11:45[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m12:14:07[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PostCard.tsx, /src/globals.css[22m
+[2m12:14:24[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/HomePage.tsx, /src/globals.css[22m
+[2m12:15:19[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mtsconfig.tsbuildinfo[22m
+[2m12:21:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mtsconfig.tsbuildinfo[22m
+[2m13:13:15[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m13:13:15[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m13:13:16[22m [36m[1m[vite][22m[39m server restarted.
+[2m13:14:38[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mtsconfig.tsbuildinfo[22m
+[2m16:09:06[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/globals.css, /src/pages/HomePage.tsx, /src/components/PostCard.tsx[22m
+[2m16:09:06[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/globals.css, /src/pages/HomePage.tsx, /src/components/PostCard.tsx[22m
+[2m16:10:56[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mtsconfig.tsbuildinfo[22m

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Globe2, Heart, Image, Loader2, Lock, MessageCircle, RotateCcw, Users, Video, X } from 'lucide-react'
 import { PostCard } from '../components/PostCard'
-import { currentUser as mockUser, mockPosts } from '../data/mockData'
 import { authService } from '@/services/authService'
-import { mediaService } from '@/services/mediaService'
+import { getApiErrorMessage } from '@/services/api'
+import type { User as AuthUser } from '@/services/authService'
+import { mediaService, type UploadedMedia } from '@/services/mediaService'
 import { postService } from '@/services/postService'
-import { Post } from '@/types'
+import { useAuthStore } from '@/store/authStore'
+import type { Post, User } from '@/types'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE'
 type MediaStatus = 'pending' | 'uploading' | 'uploaded' | 'failed'
@@ -19,6 +21,8 @@ interface SelectedMedia {
   progress: number
   status: MediaStatus
   mediaId?: number
+  mediaUrl?: string
+  fileType?: string
   error?: string
 }
 
@@ -33,6 +37,30 @@ const getReadableError = (error: unknown, fallback: string) => {
   }
 
   return fallback
+}
+
+const getAccessToken = () =>
+  typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+
+type StoredUser = AuthUser & Partial<Pick<User, 'postCount' | 'updatedAt'>>
+
+const toPostAuthor = (user: AuthUser): User => {
+  const storedUser = user as StoredUser
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName || user.username,
+    bio: user.bio ?? undefined,
+    avatar: user.avatar ?? undefined,
+    coverImage: user.coverImage ?? undefined,
+    followerCount: user.followerCount ?? 0,
+    followingCount: user.followingCount ?? 0,
+    postCount: storedUser.postCount ?? 0,
+    createdAt: user.createdAt,
+    updatedAt: storedUser.updatedAt ?? user.createdAt,
+  }
 }
 
 const validateFile = (file: File) => {
@@ -54,24 +82,32 @@ const visibilityOptions: Array<{ value: Visibility; label: string; icon: typeof 
 ]
 
 export default function HomePage() {
-  const [posts, setPosts] = useState(mockPosts)
+  const [posts, setPosts] = useState<Post[]>([])
   const [caption, setCaption] = useState('')
   const [visibility, setVisibility] = useState<Visibility>('PUBLIC')
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia[]>([])
+  const [isFeedLoading, setIsFeedLoading] = useState(false)
+  const [feedError, setFeedError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const selectedMediaRef = useRef<SelectedMedia[]>([])
+  const authUser = useAuthStore((state) => state.user)
 
-  const currentUser = authService.getStoredUser() ?? mockUser
+  const currentUser = authUser ?? authService.getStoredUser()
+  const currentPostAuthor = currentUser ? toPostAuthor(currentUser) : null
+  const hasAccessToken = Boolean(getAccessToken())
   const hasUploadingMedia = selectedMedia.some((media) => media.status === 'uploading')
+  const hasPendingMedia = selectedMedia.some((media) => media.status === 'pending')
   const hasFailedMedia = selectedMedia.some((media) => media.status === 'failed')
   const uploadedMediaIds = selectedMedia
     .map((media) => media.mediaId)
-    .filter((mediaId): mediaId is number => Boolean(mediaId))
+    .filter((mediaId): mediaId is number => typeof mediaId === 'number')
   const canSubmit =
+    Boolean(currentUser && hasAccessToken) &&
     !isSubmitting &&
     !hasUploadingMedia &&
+    !hasPendingMedia &&
     !hasFailedMedia &&
     (caption.trim().length > 0 || uploadedMediaIds.length > 0)
 
@@ -93,21 +129,63 @@ export default function HomePage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!currentUser || !hasAccessToken) {
+      setPosts([])
+      setFeedError('Vui long dang nhap de xem bai viet.')
+      setIsFeedLoading(false)
+      return
+    }
+
+    let isCurrent = true
+    setIsFeedLoading(true)
+    setFeedError(null)
+
+    postService
+      .getFeed(currentUser.id)
+      .then((response) => {
+        if (!isCurrent) return
+        setPosts(response.items)
+      })
+      .catch((error) => {
+        if (!isCurrent) return
+        setPosts([])
+        setFeedError(getApiErrorMessage(error, 'Khong tai duoc danh sach bai viet.'))
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsFeedLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [currentUser?.id, hasAccessToken])
+
   const updateMedia = (mediaId: string, changes: Partial<SelectedMedia>) => {
     setSelectedMedia((prev) =>
       prev.map((media) => (media.id === mediaId ? { ...media, ...changes } : media))
     )
   }
 
-  const uploadMediaItem = async (media: SelectedMedia) => {
-    if (media.status === 'uploaded' && media.mediaId) {
-      return media.mediaId
+  const uploadMediaItem = async (media: SelectedMedia): Promise<UploadedMedia> => {
+    if (!currentUser) {
+      throw new Error('Vui long dang nhap lai truoc khi upload file.')
+    }
+
+    if (media.status === 'uploaded' && media.mediaId && media.mediaUrl && media.fileType) {
+      return {
+        mediaId: media.mediaId,
+        mediaUrl: media.mediaUrl,
+        fileType: media.fileType,
+      }
     }
 
     updateMedia(media.id, { status: 'uploading', progress: 0, error: undefined })
 
     try {
-      const uploadedMediaId = await mediaService.uploadViaPresignedUrl(
+      const uploadedMedia = await mediaService.uploadViaPresignedUrl(
         currentUser.id,
         media.file,
         (progressEvent) => {
@@ -120,13 +198,15 @@ export default function HomePage() {
       updateMedia(media.id, {
         status: 'uploaded',
         progress: 100,
-        mediaId: uploadedMediaId,
+        mediaId: uploadedMedia.mediaId,
+        mediaUrl: uploadedMedia.mediaUrl,
+        fileType: uploadedMedia.fileType,
         error: undefined,
       })
 
-      return uploadedMediaId
+      return uploadedMedia
     } catch (error) {
-      const message = getReadableError(error, 'Upload file that bai.')
+      const message = getApiErrorMessage(error, 'Upload file that bai.')
       updateMedia(media.id, { status: 'failed', progress: 0, error: message })
       throw new Error(`${media.name}: ${message}`)
     }
@@ -143,11 +223,27 @@ export default function HomePage() {
       return
     }
 
-    // const token = localStorage.getItem('accessToken')
-    // nho chinh lai 
-    const token = "dsfsdfdsfsdf sdfsd"
-    if (!token) {
-      setFormError('Token thieu hoac da het han. Vui long dang nhap lai.')
+    const token = getAccessToken()
+    if (!currentUser || !currentPostAuthor || !token) {
+      setFormError('Phien dang nhap thieu hoac da het han. Vui long dang nhap lai.')
+      return
+    }
+
+    const mediaIds = selectedMedia
+      .map((media) => media.mediaId)
+      .filter((mediaId): mediaId is number => typeof mediaId === 'number')
+    const media = selectedMedia
+      .filter((item): item is SelectedMedia & { mediaId: number; mediaUrl: string } =>
+        typeof item.mediaId === 'number' && typeof item.mediaUrl === 'string'
+      )
+      .map((item) => ({
+        mediaId: item.mediaId,
+        mediaUrl: item.mediaUrl,
+        fileType: item.fileType ?? item.file.type,
+      }))
+
+    if (selectedMedia.length > 0 && media.length !== selectedMedia.length) {
+      setFormError('Vui long doi upload file hoan tat truoc khi dang bai.')
       return
     }
 
@@ -158,15 +254,25 @@ export default function HomePage() {
     try {
       const createdPost = await postService.createPost({
         userId: currentUser.id,
+        username: currentUser.username,
+        displayName: currentUser.fullName,
+        avatarUrl: currentUser.avatar ?? undefined,
         content: caption.trim(),
         visibility,
-        mediaIds: uploadedMediaIds,
+        mediaIds,
+        media,
       })
+
+      const newPostUserId = createdPost.userId ?? currentUser.id
+      const newPostAuthor =
+        newPostUserId === currentUser.id
+          ? { ...currentPostAuthor, postCount: currentPostAuthor.postCount + 1 }
+          : createdPost.author
 
       const newPost: Post = {
         ...createdPost,
         id: createdPost.id ?? Math.max(...posts.map((post) => post.id), 0) + 1,
-        userId: createdPost.userId ?? currentUser.id,
+        userId: newPostUserId,
         content: createdPost.content ?? caption,
         mediaUrls: createdPost.mediaUrls ?? [],
         likeCount: createdPost.likeCount ?? 0,
@@ -175,7 +281,7 @@ export default function HomePage() {
         visibility: createdPost.visibility ?? visibility,
         createdAt: createdPost.createdAt ?? new Date().toISOString(),
         updatedAt: createdPost.updatedAt ?? new Date().toISOString(),
-        author: createdPost.author ?? currentUser,
+        author: newPostAuthor,
       }
 
       setPosts((prev) => [newPost, ...prev])
@@ -185,7 +291,7 @@ export default function HomePage() {
       setSelectedMedia([])
       setSuccessMessage('Dang bai thanh cong.')
     } catch (error) {
-      setFormError(getReadableError(error, 'Tao bai viet that bai.'))
+      setFormError(getApiErrorMessage(error, getReadableError(error, 'Tao bai viet that bai.')))
     } finally {
       setIsSubmitting(false)
     }
@@ -197,6 +303,11 @@ export default function HomePage() {
     setSuccessMessage(null)
 
     if (files.length === 0) return
+
+    if (!currentUser || !getAccessToken()) {
+      setFormError('Phien dang nhap thieu hoac da het han. Vui long dang nhap lai.')
+      return
+    }
 
     const errors = files.map(validateFile).filter((error): error is string => Boolean(error))
     const validFiles = files.filter((file) => !validateFile(file))
@@ -220,17 +331,10 @@ export default function HomePage() {
     }))
 
     setSelectedMedia((prev) => [...prev, ...mediaItems])
-    // nho chinh lai 
-    // const token = localStorage.getItem('accessToken')
-    const token = "dsfsdfdsfsdf sdfsd"
-    if (!token) {
-      setFormError('Token thieu hoac da het han. Vui long dang nhap lai.')
-      return
-    }
 
     mediaItems.forEach((media) => {
       uploadMediaItem(media).catch((error) => {
-        setFormError(getReadableError(error, 'Upload file that bai.'))
+        setFormError(getApiErrorMessage(error, getReadableError(error, 'Upload file that bai.')))
       })
     })
   }
@@ -245,7 +349,7 @@ export default function HomePage() {
     try {
       await uploadMediaItem(media)
     } catch (error) {
-      setFormError(getReadableError(error, 'Upload file that bai.'))
+      setFormError(getApiErrorMessage(error, getReadableError(error, 'Upload file that bai.')))
     }
   }
 
@@ -260,16 +364,20 @@ export default function HomePage() {
     })
   }
 
-  const handleLike = (postId: number) => {
-    setPosts(
-      posts.map((post) =>
-        post.id === postId ? { ...post, likeCount: post.likeCount + 1 } : post
+  const handleLikeChange = (postId: number, liked: boolean, nextLikeCount: number) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId ? { ...post, isLiked: liked, likeCount: nextLikeCount } : post
       )
     )
   }
 
-  const handleComment = (postId: number) => {
-    console.log('Comment on post:', postId)
+  const handleCommentCreated = (postId: number, nextCommentCount: number) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId ? { ...post, commentCount: nextCommentCount } : post
+      )
+    )
   }
 
   return (
@@ -290,7 +398,7 @@ export default function HomePage() {
                 setFormError(null)
                 setSuccessMessage(null)
               }}
-              placeholder="Share your moment..."
+              placeholder={currentUser ? 'Share your moment...' : 'Dang nhap de dang bai...'}
               className="w-full resize-none text-xl outline-none placeholder-gray-500"
               rows={3}
             />
@@ -432,7 +540,17 @@ export default function HomePage() {
       </div>
 
       <div>
-        {posts.length === 0 ? (
+        {isFeedLoading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-gray-500">
+            <Loader2 size={22} className="animate-spin" />
+            <span>Dang tai bai viet...</span>
+          </div>
+        ) : feedError ? (
+          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+            <MessageCircle size={48} className="mb-4 text-gray-300" />
+            <p className="text-lg text-gray-700">{feedError}</p>
+          </div>
+        ) : posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <MessageCircle size={48} className="mb-4 text-gray-300" />
             <p className="text-lg text-gray-500">No posts yet</p>
@@ -443,8 +561,9 @@ export default function HomePage() {
             <PostCard
               key={post.id}
               post={post}
-              onLike={() => handleLike(post.id)}
-              onComment={() => handleComment(post.id)}
+              currentUser={currentPostAuthor}
+              onLikeChange={handleLikeChange}
+              onCommentCreated={handleCommentCreated}
             />
           ))
         )}
