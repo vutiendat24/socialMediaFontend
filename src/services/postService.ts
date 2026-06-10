@@ -1,6 +1,7 @@
 import api from './api';
+import { API_ROUTES } from './apiRoutes';
 import { mediaService } from './mediaService';
-import { Comment, Post, User } from '@/types';
+import { Comment, EntityId, Post, User } from '@/types';
 
 export type { Comment, Post } from '@/types';
 
@@ -10,13 +11,13 @@ export interface CreatePostRequest {
   displayName?: string;
   avatarUrl?: string;
   content: string;
-  mediaIds: number[];
+  mediaIds: EntityId[];
   media?: CreatePostMediaRequest[];
   visibility?: Post['visibility'];
 }
 
 export interface CreatePostMediaRequest {
-  mediaId: number;
+  mediaId: EntityId;
   mediaUrl: string;
   fileType?: string;
 }
@@ -29,12 +30,12 @@ export interface UpdatePostRequest {
 }
 
 interface PostCommandResponse {
-  postId: number;
+  postId: EntityId;
   message: string;
 }
 
 interface PostDetailResponse {
-  postId: number;
+  postId: EntityId;
   userId: number;
   username?: string | null;
   displayName?: string | null;
@@ -51,8 +52,8 @@ interface PostDetailResponse {
 }
 
 interface CommentResponse {
-  commentId: number;
-  postId: number;
+  commentId: EntityId;
+  postId: EntityId;
   userId: number;
   username?: string | null;
   displayName?: string | null;
@@ -62,15 +63,15 @@ interface CommentResponse {
 }
 
 export interface LikeActionResponse {
-  postId: number;
+  postId: EntityId;
   userId: number;
   likeCount: number;
   liked: boolean;
 }
 
 interface CommentCommandResponse {
-  postId: number;
-  commentId: number;
+  postId: EntityId;
+  commentId: EntityId;
   userId: number;
   username?: string | null;
   displayName?: string | null;
@@ -198,7 +199,7 @@ const mapComment = (comment: CommentResponse): Comment => ({
 
 export const postService = {
   createPost: async (data: CreatePostRequest): Promise<Post> => {
-    const response = await api.post<PostCommandResponse>('/api/v1/posts', data, {
+    const response = await api.post<PostCommandResponse>(API_ROUTES.posts.base, data, {
       headers: {
         'Idempotency-Key': crypto.randomUUID(),
       },
@@ -231,7 +232,7 @@ export const postService = {
 
   getFeed: async (userId: number, limit = 20, cursor?: string): Promise<FeedResponse> => {
     const response = await api.get<{ items: PostDetailResponse[]; nextCursor: string | null; hasNext: boolean }>(
-      `/api/v1/posts/feed/${userId}`,
+      API_ROUTES.posts.feed(userId),
       {
         params: { size: limit, cursor },
       }
@@ -243,50 +244,50 @@ export const postService = {
     };
   },
 
-  getPostDetail: async (postId: number): Promise<Post> => {
-    const response = await api.get<PostDetailResponse>(`/api/v1/posts/${postId}`);
+  getPostDetail: async (postId: EntityId): Promise<Post> => {
+    const response = await api.get<PostDetailResponse>(API_ROUTES.posts.detail(postId));
     return mapPost(response.data);
   },
 
-  getPostById: async (postId: number): Promise<Post> => {
-    const response = await api.get<PostDetailResponse>(`/api/v1/posts/${postId}`);
+  getPostById: async (postId: EntityId): Promise<Post> => {
+    const response = await api.get<PostDetailResponse>(API_ROUTES.posts.detail(postId));
     return mapPost(response.data);
   },
 
-  updatePost: async (postId: number, data: UpdatePostRequest): Promise<Post> => {
-    await api.put<PostCommandResponse>(`/api/v1/posts/${postId}`, data);
+  updatePost: async (postId: EntityId, data: UpdatePostRequest): Promise<Post> => {
+    await api.put<PostCommandResponse>(API_ROUTES.posts.detail(postId), data);
     return postService.getPostDetail(postId);
   },
 
-  deletePost: async (postId: number, userId: number): Promise<void> => {
-    await api.delete(`/api/v1/posts/${postId}`, {
+  deletePost: async (postId: EntityId, userId: number): Promise<void> => {
+    await api.delete(API_ROUTES.posts.detail(postId), {
       params: { userId },
     });
   },
 
-  likePost: async (postId: number, userId: number): Promise<LikeActionResponse> => {
-    const response = await api.post<LikeActionResponse>(`/api/v1/posts/${postId}/like`, { userId });
+  likePost: async (postId: EntityId, userId: number): Promise<LikeActionResponse> => {
+    const response = await api.post<LikeActionResponse>(API_ROUTES.posts.like(postId), { userId });
     return response.data;
   },
 
-  unlikePost: async (postId: number, userId: number): Promise<LikeActionResponse> => {
-    const response = await api.delete<LikeActionResponse>(`/api/v1/posts/${postId}/like`, {
+  unlikePost: async (postId: EntityId, userId: number): Promise<LikeActionResponse> => {
+    const response = await api.delete<LikeActionResponse>(API_ROUTES.posts.like(postId), {
       params: { userId },
     });
     return response.data;
   },
 
-  getComments: async (postId: number, page = 0, size = 20): Promise<Comment[]> => {
-    const response = await api.get<CommentPageResponse>(`/api/v1/posts/${postId}/comments`, {
+  getComments: async (postId: EntityId, page = 0, size = 20): Promise<Comment[]> => {
+    const response = await api.get<CommentPageResponse>(API_ROUTES.posts.comments(postId), {
       params: { page, size },
     });
 
     return response.data.items.map(mapComment);
   },
 
-  createComment: async (postId: number, user: User, content: string): Promise<CreateCommentResult> => {
+  createComment: async (postId: EntityId, user: User, content: string): Promise<CreateCommentResult> => {
     const createdAt = new Date().toISOString();
-    const response = await api.post<CommentCommandResponse>(`/api/v1/posts/${postId}/comments`, {
+    const response = await api.post<CommentCommandResponse>(API_ROUTES.posts.comments(postId), {
       userId: user.id,
       username: user.username,
       displayName: user.fullName,

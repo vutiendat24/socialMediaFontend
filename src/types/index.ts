@@ -1,4 +1,6 @@
 // User Types
+export type EntityId = string | number;
+
 export interface User {
   id: number;
   username: string;
@@ -17,7 +19,7 @@ export interface User {
 
 // Post Types
 export interface Post {
-  id: number;
+  id: EntityId;
   userId: number;
   content: string;
   mediaUrls?: string[];
@@ -32,8 +34,8 @@ export interface Post {
 }
 
 export interface Comment {
-  id: number;
-  postId: number;
+  id: EntityId;
+  postId: EntityId;
   userId: number;
   content: string;
   likeCount: number;
@@ -48,7 +50,7 @@ export interface Notification {
   userId: number;
   type: 'LIKE' | 'COMMENT' | 'FOLLOW' | 'MESSAGE';
   relatedUserId: number;
-  relatedPostId?: number;
+  relatedPostId?: EntityId;
   message: string;
   isRead: boolean;
   createdAt: string;

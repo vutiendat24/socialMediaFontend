@@ -1,9 +1,10 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import api from './api';
+import type { EntityId } from '@/types';
 
 export interface MediaUploadResponse {
   url: string;
-  mediaId: number;
+  mediaId: EntityId;
   mediaUrl?: string;
   fileType?: string;
 }
@@ -16,13 +17,13 @@ export interface PresignedUrlRequest {
 
 export interface PresignedUrlResponse {
   uploadUrl: string;
-  mediaId: number;
+  mediaId: EntityId;
   mediaUrl: string;
   expiresAt?: string;
 }
 
 export interface UploadedMedia {
-  mediaId: number;
+  mediaId: EntityId;
   mediaUrl: string;
   fileType: string;
 }
@@ -62,7 +63,7 @@ const getMediaBaseUrl = () => {
   return `http://${configuredUrl}`.replace(/\/$/, '');
 };
 
-const getMediaUrl = (mediaId: number): string => {
+const getMediaUrl = (mediaId: EntityId): string => {
   const baseUrl = getMediaBaseUrl();
   return baseUrl.endsWith('/media') ? `${baseUrl}/${mediaId}` : `${baseUrl}/media/${mediaId}`;
 };
@@ -146,7 +147,7 @@ export const mediaService = {
     return mediaService.uploadImage(file, onUploadProgress);
   },
 
-  deleteMedia: async (mediaId: number): Promise<void> => {
+  deleteMedia: async (mediaId: EntityId): Promise<void> => {
     console.warn(`media-service backend does not expose delete endpoint for media ${mediaId}.`);
   },
 };

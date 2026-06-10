@@ -1,9 +1,10 @@
 import useSWR, { mutate } from 'swr';
 import { postService, Post, CreatePostRequest } from '@/services/postService';
 import { useCallback } from 'react';
+import type { EntityId } from '@/types';
 
 const getFeedKey = (userId: number) => ['posts', 'feed', userId] as const;
-const getPostKey = (postId: number) => ['posts', 'detail', postId] as const;
+const getPostKey = (postId: EntityId) => ['posts', 'detail', postId] as const;
 
 export const usePosts = (userId?: number) => {
   const feedKey = userId ? getFeedKey(userId) : null;
@@ -33,7 +34,7 @@ export const usePosts = (userId?: number) => {
   );
 
   const deletePost = useCallback(
-    async (postId: number, feedUserId: number) => {
+    async (postId: EntityId, feedUserId: number) => {
       try {
         if (!userId) {
           throw new Error('User id is required to delete a post');
@@ -49,7 +50,7 @@ export const usePosts = (userId?: number) => {
   );
 
   const likePost = useCallback(
-    async (postId: number) => {
+    async (postId: EntityId) => {
       try {
         if (!userId) {
           throw new Error('User id is required to like a post');
@@ -64,7 +65,7 @@ export const usePosts = (userId?: number) => {
   );
 
   const unlikePost = useCallback(
-    async (postId: number) => {
+    async (postId: EntityId) => {
       try {
         if (!userId) {
           throw new Error('User id is required to unlike a post');
@@ -89,7 +90,7 @@ export const usePosts = (userId?: number) => {
   };
 };
 
-export const usePostDetail = (postId: number) => {
+export const usePostDetail = (postId: EntityId) => {
   const { data: post, isLoading, error } = useSWR(
     postId ? getPostKey(postId) : null,
     () => postService.getPostDetail(postId),

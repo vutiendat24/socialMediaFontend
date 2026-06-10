@@ -27,10 +27,10 @@ export const Sidebar = ({ user, onLogout }: SidebarProps) => {
       <aside className="hidden md:flex md:flex-col md:fixed md:left-0 md:top-0 md:h-screen md:w-64 md:bg-white md:border-r md:border-gray-200 md:p-4">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-br from-pink-600 to-purple-600 rounded-lg flex items-center justify-center">
+          {/* <div className="w-10 h-10 bg-gradient-to-br from-pink-600 to-purple-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xl">📷</span>
-          </div>
-          <span className="text-2xl font-black">Melody Media</span>
+          </div> */}
+          <span className="text-2xl font-black ">Melody Media</span>
         </div>
 
         {/* Navigation */}

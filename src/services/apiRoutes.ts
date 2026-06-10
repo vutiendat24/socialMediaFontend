@@ -29,10 +29,10 @@ export const API_ROUTES = {
   },
   posts: {
     base: '/api/posts',
-    detail: (id: number) => `/api/posts/${id}`,
+    detail: (id: string | number) => `/api/posts/${id}`,
     feed: (userId: number) => `/api/feed/${userId}`,
-    comments: (id: number) => `/api/posts/${id}/comments`,
-    like: (id: number) => `/api/posts/${id}/like`,
+    comments: (id: string | number) => `/api/posts/${id}/comments`,
+    like: (id: string | number) => `/api/posts/${id}/like`,
   },
   media: {
     presignedUrl: '/api/media/presigned-url',

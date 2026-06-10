@@ -133,6 +133,7 @@ export const authService = {
       return null;
     }
     const user = localStorage.getItem('currentUser');
+    console.log(user);
     return user ? JSON.parse(user) : null;
   },
 
