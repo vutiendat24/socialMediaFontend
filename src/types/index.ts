@@ -17,6 +17,34 @@ export interface User {
   updatedAt: string;
 }
 
+export interface PageResponse<T> {
+  items: T[];
+  totalElements: number;
+  totalPages: number;
+  page: number;
+  size: number;
+}
+
+export type FriendRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';
+
+export type FriendshipStatus = 'NONE' | 'PENDING_OUTGOING' | 'PENDING_INCOMING' | 'FRIENDS';
+
+export interface FriendRequest {
+  id: number;
+  requesterId: number;
+  receiverId: number;
+  status: FriendRequestStatus;
+  requester?: User;
+  receiver?: User;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FriendshipStatusResponse {
+  status: FriendshipStatus;
+  requestId?: number;
+}
+
 // Post Types
 export interface Post {
   id: EntityId;

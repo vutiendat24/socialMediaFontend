@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { Home, Search, Compass, Heart, MessageCircle, Bookmark, User, Menu, X } from 'lucide-react'
+import { Home, Search, Compass, Heart, MessageCircle, Bookmark, User, Menu, X, Users } from 'lucide-react'
 import { useState } from 'react'
 import { User as UserType } from '@/services/authService'
 
@@ -16,6 +16,7 @@ export const Sidebar = ({ user, onLogout }: SidebarProps) => {
     { icon: Search, label: 'Explore', to: '/search' },
     { icon: Compass, label: 'Trending', to: '/explore' },
     { icon: Heart, label: 'Notifications', to: '/notifications' },
+    { icon: Users, label: 'Friends', to: '/friends' },
     { icon: MessageCircle, label: 'Messages', to: '/messages' },
     { icon: Bookmark, label: 'Saved', to: '/saved' },
     { icon: User, label: 'Profile', to: '/profile' },

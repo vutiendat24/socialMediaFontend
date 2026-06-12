@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar'
 import HomePage from './pages/HomePage'
 import SearchPage from './pages/SearchPage'
 import ProfilePage from './pages/ProfilePage'
+import FriendsPage from './pages/FriendsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -46,6 +47,9 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/friends/:userId" element={<FriendsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/explore" element={<SearchPage />} />
           <Route path="/messages" element={<HomePage />} />

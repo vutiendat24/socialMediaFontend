@@ -6,6 +6,12 @@ export interface NotificationDto {
   type: string;
   message: string;
   referenceId?: string | null;
+  sourceEventId?: string | null;
+  actorId?: string | null;
+  actorUsername?: string | null;
+  actorDisplayName?: string | null;
+  actorAvatarUrl?: string | null;
+  contentPreview?: string | null;
   readFlag: boolean;
   createdAt: string;
 }

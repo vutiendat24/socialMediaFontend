@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Loader2, Search as SearchIcon, User as UserIcon } from 'lucide-react'
 import { searchService } from '@/services/searchService'
-import { authService } from '@/services/authService'
+import { friendService } from '@/services/friendService'
 import { getApiErrorMessage } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-import { Post, User } from '@/types'
+import { FriendshipStatusResponse, Post, User } from '@/types'
 
 type Tab = 'all' | 'posts' | 'people'
 
@@ -15,7 +16,7 @@ export default function SearchPage() {
   const [activeTab, setActiveTab] = useState<Tab>('all')
   const [users, setUsers] = useState<User[]>([])
   const [posts, setPosts] = useState<Post[]>([])
-  const [followingIds, setFollowingIds] = useState<Set<number>>(new Set())
+  const [friendshipByUserId, setFriendshipByUserId] = useState<Record<number, FriendshipStatusResponse>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [actionUserId, setActionUserId] = useState<number | null>(null)
@@ -24,20 +25,6 @@ export default function SearchPage() {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 400)
     return () => clearTimeout(timer)
   }, [searchQuery])
-
-  const loadFollowing = useCallback(async () => {
-    if (!currentUser?.id) return
-    try {
-      const following = await authService.getFollowing(currentUser.id, 0, 100)
-      setFollowingIds(new Set(following.map((u) => u.id)))
-    } catch {
-      // optional — follow buttons still work without preloaded state
-    }
-  }, [currentUser?.id])
-
-  useEffect(() => {
-    loadFollowing()
-  }, [loadFollowing])
 
   useEffect(() => {
     if (!debouncedQuery) {
@@ -52,32 +39,58 @@ export default function SearchPage() {
       setError('')
 
       try {
+        let nextUsers: User[] = []
+        let nextPosts: Post[] = []
+
         if (activeTab === 'people') {
-          setUsers(await searchService.searchUsers(debouncedQuery))
-          setPosts([])
+          nextUsers = await searchService.searchUsers(debouncedQuery)
         } else if (activeTab === 'posts') {
-          setPosts(await searchService.searchPosts(debouncedQuery))
-          setUsers([])
+          nextPosts = await searchService.searchPosts(debouncedQuery)
         } else {
           const result = await searchService.searchAll(debouncedQuery)
-          setUsers(result.users)
-          setPosts(result.posts)
+          nextUsers = result.users
+          nextPosts = result.posts
+        }
+
+        setUsers(nextUsers)
+        setPosts(nextPosts)
+
+        if (currentUser?.id && nextUsers.length > 0) {
+          const entries = await Promise.all(
+            nextUsers
+              .filter((user) => user.id !== currentUser.id)
+              .map(async (user) => {
+                try {
+                  return [user.id, await friendService.getFriendshipStatus(user.id)] as const
+                } catch {
+                  return [user.id, { status: 'NONE' as const }] as const
+                }
+              })
+          )
+          setFriendshipByUserId(Object.fromEntries(entries))
+        } else {
+          setFriendshipByUserId({})
         }
       } catch (err) {
         setError(getApiErrorMessage(err, 'Tim kiem that bai'))
         setUsers([])
         setPosts([])
+        setFriendshipByUserId({})
       } finally {
         setLoading(false)
       }
     }
 
     runSearch()
-  }, [debouncedQuery, activeTab])
+  }, [debouncedQuery, activeTab, currentUser?.id])
 
-  const handleFollowToggle = async (targetUser: User) => {
+  const setFriendshipForUser = (userId: number, status: FriendshipStatusResponse) => {
+    setFriendshipByUserId((prev) => ({ ...prev, [userId]: status }))
+  }
+
+  const handleFriendAction = async (targetUser: User, action: 'send' | 'cancel' | 'accept' | 'reject' | 'unfriend') => {
     if (!currentUser) {
-      setError('Hay dang nhap de follow nguoi khac')
+      setError('Hay dang nhap de ket ban')
       return
     }
 
@@ -86,25 +99,97 @@ export default function SearchPage() {
     setActionUserId(targetUser.id)
     setError('')
 
-    const isFollowing = followingIds.has(targetUser.id)
-
     try {
-      if (isFollowing) {
-        await authService.unfollowUser(targetUser.id)
-        setFollowingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(targetUser.id)
-          return next
-        })
+      if (action === 'send') {
+        const request = await friendService.sendFriendRequest(targetUser.id)
+        setFriendshipForUser(targetUser.id, { status: 'PENDING_OUTGOING', requestId: request.id })
+      } else if (action === 'cancel') {
+        await friendService.cancelFriendRequest(targetUser.id)
+        setFriendshipForUser(targetUser.id, { status: 'NONE' })
+      } else if (action === 'unfriend') {
+        await friendService.unfriend(targetUser.id)
+        setFriendshipForUser(targetUser.id, { status: 'NONE' })
       } else {
-        await authService.followUser(targetUser.id)
-        setFollowingIds((prev) => new Set(prev).add(targetUser.id))
+        const requestId = friendshipByUserId[targetUser.id]?.requestId
+        if (!requestId) return
+        if (action === 'accept') {
+          await friendService.acceptFriendRequest(requestId)
+          setFriendshipForUser(targetUser.id, { status: 'FRIENDS' })
+        } else {
+          await friendService.rejectFriendRequest(requestId)
+          setFriendshipForUser(targetUser.id, { status: 'NONE' })
+        }
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, isFollowing ? 'Unfollow that bai' : 'Follow that bai'))
+      setError(getApiErrorMessage(err, 'Thao tac ket ban that bai'))
     } finally {
       setActionUserId(null)
     }
+  }
+
+  const renderFriendButton = (user: User) => {
+    const status = friendshipByUserId[user.id]?.status ?? 'NONE'
+    const isLoadingAction = actionUserId === user.id
+
+    if (status === 'FRIENDS') {
+      return (
+        <button
+          type="button"
+          disabled={isLoadingAction}
+          onClick={() => handleFriendAction(user, 'unfriend')}
+          className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-70"
+        >
+          {isLoadingAction ? <Loader2 size={16} className="animate-spin" /> : 'Ban be'}
+        </button>
+      )
+    }
+
+    if (status === 'PENDING_OUTGOING') {
+      return (
+        <button
+          type="button"
+          disabled={isLoadingAction}
+          onClick={() => handleFriendAction(user, 'cancel')}
+          className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-70"
+        >
+          {isLoadingAction ? <Loader2 size={16} className="animate-spin" /> : 'Da gui'}
+        </button>
+      )
+    }
+
+    if (status === 'PENDING_INCOMING') {
+      return (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            disabled={isLoadingAction}
+            onClick={() => handleFriendAction(user, 'accept')}
+            className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:opacity-70"
+          >
+            Chap nhan
+          </button>
+          <button
+            type="button"
+            disabled={isLoadingAction}
+            onClick={() => handleFriendAction(user, 'reject')}
+            className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-70"
+          >
+            Tu choi
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        disabled={isLoadingAction}
+        onClick={() => handleFriendAction(user, 'send')}
+        className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:opacity-70"
+      >
+        {isLoadingAction ? <Loader2 size={16} className="animate-spin" /> : 'Ket ban'}
+      </button>
+    )
   }
 
   const showUsers = activeTab === 'all' || activeTab === 'people'
@@ -169,15 +254,13 @@ export default function SearchPage() {
               <div className="divide-y divide-gray-200">
                 {users.map((user) => {
                   const isSelf = currentUser?.id === user.id
-                  const isFollowing = followingIds.has(user.id)
-                  const isLoadingAction = actionUserId === user.id
 
                   return (
                     <div
                       key={`user-${user.id}`}
-                      className="flex items-center justify-between p-4 transition hover:bg-gray-50"
+                      className="flex items-center justify-between gap-3 p-4 transition hover:bg-gray-50"
                     >
-                      <div className="flex items-center gap-3">
+                      <Link to={`/profile/${user.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                         <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
                           {user.avatar ? (
                             <img src={user.avatar} alt={user.fullName} className="h-full w-full object-cover" />
@@ -187,36 +270,17 @@ export default function SearchPage() {
                             </div>
                           )}
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{user.fullName}</p>
-                          <p className="text-sm text-gray-500">@{user.username}</p>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-gray-900">{user.fullName}</p>
+                          <p className="truncate text-sm text-gray-500">@{user.username}</p>
                           {user.bio && <p className="mt-1 text-sm text-gray-700">{user.bio}</p>}
                           <p className="mt-1 text-xs text-gray-400">
                             {user.followerCount ?? 0} followers
                           </p>
                         </div>
-                      </div>
+                      </Link>
 
-                      {!isSelf && currentUser && (
-                        <button
-                          type="button"
-                          disabled={isLoadingAction}
-                          onClick={() => handleFollowToggle(user)}
-                          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition disabled:opacity-70 ${
-                            isFollowing
-                              ? 'border border-gray-300 text-gray-700 hover:bg-gray-100'
-                              : 'bg-blue-500 text-white hover:bg-blue-600'
-                          }`}
-                        >
-                          {isLoadingAction ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : isFollowing ? (
-                            'Unfollow'
-                          ) : (
-                            'Follow'
-                          )}
-                        </button>
-                      )}
+                      {!isSelf && currentUser && renderFriendButton(user)}
                     </div>
                   )
                 })}

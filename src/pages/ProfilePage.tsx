@@ -1,9 +1,12 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { Calendar, Loader2, Settings, User as UserIcon, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { authService, User } from '@/services/authService'
+import { friendService } from '@/services/friendService'
 import { getApiErrorMessage } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { FriendshipStatusResponse } from '@/types'
 
 interface EditForm {
   fullName: string
@@ -13,9 +16,13 @@ interface EditForm {
 }
 
 export default function ProfilePage() {
+  const { userId } = useParams()
   const { user: authUser, setUser } = useAuthStore()
   const [profile, setProfile] = useState<User | null>(null)
+  const [friendship, setFriendship] = useState<FriendshipStatusResponse | null>(null)
+  const [friendCount, setFriendCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -26,8 +33,11 @@ export default function ProfilePage() {
     coverImage: '',
   })
 
+  const targetUserId = userId ? Number(userId) : authUser?.id
+  const isOwnProfile = !!authUser?.id && authUser.id === targetUserId
+
   const loadProfile = useCallback(async () => {
-    if (!authUser?.id) {
+    if (!authUser?.id || !targetUserId || Number.isNaN(targetUserId)) {
       setLoading(false)
       return
     }
@@ -36,20 +46,29 @@ export default function ProfilePage() {
     setError('')
 
     try {
-      const data = await authService.getUserProfile(authUser.id)
-      setProfile(data)
+      const [profileData, friendsData, statusData] = await Promise.all([
+        authService.getUserProfile(targetUserId),
+        friendService.getFriends(targetUserId, 0, 1).catch(() => ({ totalElements: 0 })),
+        isOwnProfile
+          ? Promise.resolve<FriendshipStatusResponse | null>(null)
+          : friendService.getFriendshipStatus(targetUserId),
+      ])
+
+      setProfile(profileData)
+      setFriendCount(friendsData.totalElements ?? 0)
+      setFriendship(statusData)
       setEditForm({
-        fullName: data.fullName ?? '',
-        bio: data.bio ?? '',
-        avatar: data.avatar ?? '',
-        coverImage: data.coverImage ?? '',
+        fullName: profileData.fullName ?? '',
+        bio: profileData.bio ?? '',
+        avatar: profileData.avatar ?? '',
+        coverImage: profileData.coverImage ?? '',
       })
     } catch (err) {
       setError(getApiErrorMessage(err, 'Khong tai duoc ho so'))
     } finally {
       setLoading(false)
     }
-  }, [authUser?.id])
+  }, [authUser?.id, targetUserId, isOwnProfile])
 
   useEffect(() => {
     loadProfile()
@@ -92,6 +111,123 @@ export default function ProfilePage() {
     }
   }
 
+  const runFriendAction = async (action: () => Promise<unknown>, nextStatus: FriendshipStatusResponse) => {
+    setActionLoading(true)
+    setError('')
+    try {
+      await action()
+      setFriendship(nextStatus)
+      await loadProfile()
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Thao tac ket ban that bai'))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleSendRequest = async () => {
+    if (!targetUserId) return
+    setActionLoading(true)
+    setError('')
+    try {
+      const request = await friendService.sendFriendRequest(targetUserId)
+      setFriendship({ status: 'PENDING_OUTGOING', requestId: request.id })
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Gui loi moi that bai'))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const renderFriendAction = () => {
+    if (isOwnProfile) {
+      return (
+        <button
+          type="button"
+          onClick={openEdit}
+          className="flex items-center gap-2 rounded-full bg-blue-500 px-8 py-2 font-semibold text-white transition hover:bg-blue-600"
+        >
+          <Settings size={18} />
+          Chinh sua
+        </button>
+      )
+    }
+
+    if (!friendship) return null
+
+    if (friendship.status === 'FRIENDS') {
+      return (
+        <div className="flex flex-wrap justify-end gap-2">
+          <span className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700">
+            Ban be
+          </span>
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={() => targetUserId && runFriendAction(() => friendService.unfriend(targetUserId), { status: 'NONE' })}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-70"
+          >
+            Huy ket ban
+          </button>
+        </div>
+      )
+    }
+
+    if (friendship.status === 'PENDING_OUTGOING') {
+      return (
+        <div className="flex flex-wrap justify-end gap-2">
+          <span className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700">
+            Da gui loi moi
+          </span>
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={() => targetUserId && runFriendAction(() => friendService.cancelFriendRequest(targetUserId), { status: 'NONE' })}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-70"
+          >
+            Huy
+          </button>
+        </div>
+      )
+    }
+
+    if (friendship.status === 'PENDING_INCOMING' && friendship.requestId) {
+      const requestId = friendship.requestId
+      return (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={() => runFriendAction(() => friendService.acceptFriendRequest(requestId), { status: 'FRIENDS' })}
+            className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-70"
+          >
+            Chap nhan
+          </button>
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={() => runFriendAction(() => friendService.rejectFriendRequest(requestId), { status: 'NONE' })}
+            className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-70"
+          >
+            Tu choi
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        disabled={actionLoading}
+        onClick={handleSendRequest}
+        className="flex items-center gap-2 rounded-full bg-blue-500 px-8 py-2 font-semibold text-white transition hover:bg-blue-600 disabled:opacity-70"
+      >
+        {actionLoading && <Loader2 size={16} className="animate-spin" />}
+        Ket ban
+      </button>
+    )
+  }
+
   if (!authUser) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-gray-500">
@@ -128,8 +264,8 @@ export default function ProfilePage() {
       />
 
       <div className="border-b border-gray-200 px-4 pb-4">
-        <div className="-mt-20 mb-4 flex items-start justify-between">
-          <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white bg-gray-200">
+        <div className="-mt-20 mb-4 flex items-start justify-between gap-4">
+          <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-full border-4 border-white bg-gray-200">
             {profile.avatar ? (
               <img src={profile.avatar} alt={profile.fullName} className="h-full w-full object-cover" />
             ) : (
@@ -138,25 +274,28 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={openEdit}
-            className="flex items-center gap-2 rounded-full bg-blue-500 px-8 py-2 font-semibold text-white transition hover:bg-blue-600"
-          >
-            <Settings size={18} />
-            Chinh sua
-          </button>
+          <div className="mt-20">{renderFriendAction()}</div>
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <div>
           <h1 className="text-2xl font-bold">{profile.fullName}</h1>
           <p className="text-gray-500">@{profile.username}</p>
-          <p className="mt-1 text-sm text-gray-500">{profile.email}</p>
+          {isOwnProfile && <p className="mt-1 text-sm text-gray-500">{profile.email}</p>}
         </div>
 
         {profile.bio && <p className="mt-3 text-gray-900">{profile.bio}</p>}
 
-        <div className="mt-4 flex gap-6 text-sm">
+        <div className="mt-4 flex flex-wrap gap-6 text-sm">
+          <Link to={`/friends/${profile.id}`} className="hover:underline">
+            <span className="font-bold text-gray-900">{friendCount}</span>
+            <span className="text-gray-500"> Ban be</span>
+          </Link>
           <div>
             <span className="font-bold text-gray-900">{profile.followerCount ?? 0}</span>
             <span className="text-gray-500"> Followers</span>
